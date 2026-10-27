@@ -101,3 +101,9 @@ Compiled against the 1.8.8 API; version differences are handled at runtime:
 - Inventory titles are trimmed to 32 characters on 1.8-1.13, where longer titles throw.
 - No sounds, no direct enchantment/material constants.
 - New-style version numbers (26.x) are treated as "newer than everything".
+
+## Developer note
+This plugin is coded with AI assistance and architected completely by me. Regardless, use at your own risk.
+
+## License
+This plugin is under the MIT License, check the [License](LICENSE) file for more details.
