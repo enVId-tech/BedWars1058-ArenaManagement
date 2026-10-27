@@ -1,0 +1,144 @@
+# ============================================================================
+#  BedWars1058-ArenaManagement
+#
+#  Item values everywhere in this file are "specs": one or more candidates separated by '|',
+#  each NAME or NAME:data. The first one that exists on the running server is used, so a single
+#  line works from 1.8 to the newest versions:
+#      LIME_CONCRETE|STAINED_CLAY:5     (1.13+ uses the first, 1.8-1.12 the second)
+# ============================================================================
+
+prefix: "&8[&bArenaMgmt&8] "
+
+# --- BedWars1058 integration --------------------------------------------------------------
+bedwars:
+  # The group BedWars1058 gives arenas that were never assigned one. Maps in this group (or with
+  # no group at all) count as "unassigned" in the manager and in its filters.
+  default-group: "Default"
+  # World folders that are NOT arenas. Anything else with a level.dat shows up as an
+  # "unconfigured" map in the manager.
+  excluded-worlds: ["world", "world_nether", "world_the_end"]
+  # How long (ms) the arena list is cached while browsing menus.
+  cache-millis: 3000
+
+# --- Commands -------------------------------------------------------------------------------
+# Every action the menus perform is a BedWars1058 command. They are templates so you can change
+# them if your BedWars1058 version words something differently. Placeholders: {arena} {group} {new}
+commands:
+  setup: "bw setupArena {arena}"
+  set-group: "bw arenaGroup setGroup {arena} {group}"
+  create-group: "bw arenaGroup create {group}"
+  remove-group: "bw arenaGroup remove {group}"
+  clone: "bw cloneArena {arena} {new}"
+  delete: "bw delArena {arena}"
+  disable: "bw disableArena {arena}"
+  enable: "bw enableArena {arena}"
+  join: "bw join {arena}"
+  # Who runs the commands for multi-arena (bulk) jobs. CONSOLE keeps your chat from being flooded
+  # with one BedWars message per arena; PLAYER runs them as the clicking player instead.
+  # Single-arena actions and setup are always run as the player.
+  bulk-run-as: CONSOLE
+
+# Which commands the plugin takes over. Takes over `/bw <sub>` only when typed WITHOUT extra
+# arguments (so `/bw setupArena MyMap` still goes straight to BedWars1058).
+override:
+  aliases: ["bw", "bedwars"]
+  setup-arena: true
+  arena-group: true
+  arena-list: true
+  gui: true
+  # Players need this to use the management menus (same node BedWars1058 uses for setup).
+  permission: "bw.setup"
+
+# --- Bulk jobs ------------------------------------------------------------------------------
+bulk:
+  # Commands run per step, and ticks between steps. Enabling / cloning arenas loads worlds, so
+  # keep this gentle on big batches.
+  commands-per-step: 1
+  ticks-between-steps: 3
+  # After a job finishes, wait this long then re-read the arenas to report what actually changed.
+  verify-delay-ticks: 20
+  # Ticks to wait between disabling an arena and starting its setup.
+  setup-delay-ticks: 20
+  confirm-delete: true
+
+# --- The player-facing `/bw gui` arena selector ----------------------------------------------
+# This REPLACES the arena-gui slot settings in BedWars1058's own config.
+gui:
+  # Placeholders: {group}
+  title: "&8{group}"
+  title-all: "&8All Arenas"
+  # Appended to the title when there is more than one page. {page} {pages}
+  title-page-suffix: " &7({page}/{pages})"
+
+  # Inventory height. AUTO shrinks/grows to fit the arena count (3 - 6 rows). Set 1-6 to pin it
+  # (6 = always the full 9x6 chest).
+  rows: AUTO
+  rows-min: 3
+  # Leave empty for the automatic layout: a 7-wide block inside a 1-slot empty border, exactly
+  # like the default BedWars1058 look (28 maps on a 9x6 chest). To take full control, list slots,
+  # e.g.  slots: [10, 11, 12, 13, 14, 15, 16, 19, 20]   (these are used with `rows`, default 6).
+  slots: []
+
+  # false hides arenas whose game is already running (BedWars1058's "show-playing").
+  show-playing: true
+  # Item for slots that hold no arena. Leave empty for no item (empty slot).
+  skipped-slot-item: ""
+  # How often the open menu refreshes live player counts / states.
+  refresh-ticks: 20
+
+  name: "&a{displayName}"
+  lore:
+    - "&7Players: &f{players}&7/&f{max}"
+    - "&7Status: {status}"
+    - "&7Group: &f{group}"
+    - ""
+    - "&eClick to join"
+
+  status-names:
+    waiting: "&aWaiting"
+    starting: "&6Starting"
+    playing: "&cPlaying"
+    restarting: "&cRestarting"
+
+  # One entry per game state. "restarting" uses the "playing" entry.
+  items:
+    waiting:
+      material: "LIME_CONCRETE|STAINED_CLAY:5"
+      enchanted: false
+    starting:
+      material: "YELLOW_CONCRETE|STAINED_CLAY:4"
+      enchanted: true
+    playing:
+      material: "RED_CONCRETE|STAINED_CLAY:14"
+      enchanted: false
+
+# --- Manager menu items -------------------------------------------------------------------
+items:
+  arena-enabled: "LIME_CONCRETE|STAINED_CLAY:5"
+  arena-disabled: "RED_CONCRETE|STAINED_CLAY:14"
+  arena-unconfigured: "GRAY_CONCRETE|STAINED_CLAY:7"
+  prev: "ARROW"
+  next: "ARROW"
+  page: "PAPER"
+  commands: "BOOK"
+  arena-list: "MAP"
+  filter: "HOPPER"
+  select-page: "NETHER_STAR"
+  bulk: "CHEST"
+  groups: "NAME_TAG"
+  group: "NAME_TAG"
+  back: "ARROW"
+  close: "BARRIER"
+  info: "SIGN|OAK_SIGN"
+  letter: "PAPER"
+  confirm: "LIME_DYE|INK_SACK:10"
+  cancel: "RED_DYE|INK_SACK:1"
+  action-setup: "CRAFTING_TABLE|WORKBENCH"
+  action-group: "NAME_TAG"
+  action-clone: "PAPER"
+  action-enable: "LIME_DYE|INK_SACK:10"
+  action-disable: "RED_DYE|INK_SACK:1"
+  action-delete: "TNT"
+  action-create: "EMERALD"
+  select: "NETHER_STAR"
+  unavailable: "GRAY_DYE|INK_SACK:8"

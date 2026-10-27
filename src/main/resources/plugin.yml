@@ -1,0 +1,18 @@
+name: BedWars1058-ArenaManagement
+main: dev.etran.bedwars1058.arenamanagement.ArenaManagementPlugin
+version: ${version}
+author: etran
+description: Menu-driven arena, group and bulk management for BedWars1058.
+depend: [BedWars1058]
+# 1.8 - 1.12 servers ignore this key. On 1.13+ it stops the server treating the plugin as
+# "legacy" (which would remap material names). 1.13 is the lowest valid value.
+api-version: "1.13"
+commands:
+  arenamanagement:
+    description: Reload or inspect BedWars1058-ArenaManagement.
+    usage: /arenamanagement <reload|menu|gui [group]>
+    aliases: [bwam]
+permissions:
+  arenamanagement.admin:
+    description: Allows /arenamanagement reload.
+    default: op
