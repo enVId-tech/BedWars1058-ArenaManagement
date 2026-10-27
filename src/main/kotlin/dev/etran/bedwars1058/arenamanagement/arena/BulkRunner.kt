@@ -17,7 +17,6 @@ class BulkRunner(private val plugin: ArenaManagementPlugin) {
         val owner: Player,
         val title: String,
         val commands: List<String>,
-        val asConsole: Boolean,
         /** How many changes the job is expected to make (for the "confirmed X/Y" report). */
         val expected: Int,
         /** Counts how many of those changes are visible in a fresh snapshot. null = unverified. */
@@ -45,6 +44,12 @@ class BulkRunner(private val plugin: ArenaManagementPlugin) {
         val perStep = plugin.settings.commandsPerStep
         object : BukkitRunnable() {
             override fun run() {
+                if (!job.owner.isOnline) {
+                    cancel()
+                    plugin.logger.warning("Job '${job.title}' stopped: ${job.owner.name} went offline.")
+                    finish(job)
+                    return
+                }
                 var done = 0
                 while (done < perStep && iterator.hasNext()) {
                     dispatch(job, iterator.next())
@@ -60,8 +65,8 @@ class BulkRunner(private val plugin: ArenaManagementPlugin) {
 
     private fun dispatch(job: Job, command: String) {
         try {
-            val sender = if (job.asConsole || !job.owner.isOnline) Bukkit.getConsoleSender() else job.owner
-            Bukkit.dispatchCommand(sender, command)
+            // BedWars1058 refuses console for every management command, so jobs run as the player.
+            Bukkit.dispatchCommand(job.owner, command)
         } catch (t: Throwable) {
             plugin.logger.warning("Command '$command' failed: ${t.javaClass.simpleName}: ${t.message}")
         }

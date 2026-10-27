@@ -15,17 +15,17 @@ class Settings(private val plugin: ArenaManagementPlugin) {
 
     // commands
     fun command(key: String): String = cfg.getString("commands.$key") ?: ""
-    val bulkRunsAsConsole: Boolean get() = !(cfg.getString("commands.bulk-run-as") ?: "CONSOLE").equals("PLAYER", true)
 
     // overrides
     val aliases: Set<String> get() = cfg.getStringList("override.aliases").map { it.lowercase() }.toSet()
     fun overrides(key: String): Boolean = cfg.getBoolean("override.$key", true)
     val permission: String get() = cfg.getString("override.permission") ?: "bw.setup"
+    val groupPermission: String get() = cfg.getString("override.group-permission") ?: "bw.groups"
 
     // bulk
     val commandsPerStep: Int get() = cfg.getInt("bulk.commands-per-step", 1).coerceAtLeast(1)
     val ticksBetweenSteps: Long get() = cfg.getLong("bulk.ticks-between-steps", 3L).coerceAtLeast(1L)
-    val verifyDelayTicks: Long get() = cfg.getLong("bulk.verify-delay-ticks", 20L).coerceAtLeast(1L)
+    val verifyDelayTicks: Long get() = cfg.getLong("bulk.verify-delay-ticks", 60L).coerceAtLeast(1L)
     val setupDelayTicks: Long get() = cfg.getLong("bulk.setup-delay-ticks", 20L).coerceAtLeast(1L)
     val confirmDelete: Boolean get() = cfg.getBoolean("bulk.confirm-delete", true)
 
@@ -40,8 +40,9 @@ class Settings(private val plugin: ArenaManagementPlugin) {
     val guiCustomSlots: List<Int> get() = cfg.getIntegerList("gui.slots")
     val guiShowPlaying: Boolean get() = cfg.getBoolean("gui.show-playing", true)
     val guiSkippedItem: String get() = cfg.getString("gui.skipped-slot-item") ?: ""
+    val guiSkippedName: String get() = cfg.getString("gui.skipped-slot-name") ?: " "
     val guiRefreshTicks: Long get() = cfg.getLong("gui.refresh-ticks", 20L).coerceAtLeast(5L)
-    val guiName: String get() = cfg.getString("gui.name") ?: "&a{displayName}"
+    val guiName: String get() = cfg.getString("gui.name") ?: "&a{name}"
     val guiLore: List<String> get() = cfg.getStringList("gui.lore")
 
     /** 0 = AUTO, 1-6 = fixed height. */

@@ -46,7 +46,7 @@ class CommandInterceptor(private val plugin: ArenaManagementPlugin) : Listener {
                 plugin.later(1L) { ArenaBrowserMenu(plugin, player).open() }
             }
             "arenagroup" -> {
-                if (!settings.overrides("arena-group") || !canManage(player)) return
+                if (!settings.overrides("arena-group") || !player.hasPermission(settings.groupPermission)) return
                 when {
                     args.isEmpty() -> {
                         event.isCancelled = true
@@ -64,7 +64,8 @@ class CommandInterceptor(private val plugin: ArenaManagementPlugin) : Listener {
                 plugin.ops.sendArenaList(player)
             }
             "gui" -> {
-                if (!settings.overrides("gui")) return
+                // BedWars1058 itself ignores /bw gui while you are inside an arena.
+                if (!settings.overrides("gui") || plugin.hook.isInArena(player)) return
                 event.isCancelled = true
                 openSelector(player, args.firstOrNull())
             }
@@ -76,7 +77,11 @@ class CommandInterceptor(private val plugin: ArenaManagementPlugin) : Listener {
     /** Shared by `/bw gui` and `/arenamanagement gui`. */
     fun openSelector(player: Player, group: String?) {
         if (group != null) {
-            val known = plugin.repository.snapshot().hasGroup(group) || plugin.hook.liveArenas().any { it.group.equals(group, ignoreCase = true) }
+            // "a+b" selects several groups, like BedWars1058.
+            val snapshot = plugin.repository.snapshot()
+            val known = group.split('+').filter { it.isNotBlank() }.all { part ->
+                snapshot.hasGroup(part) || plugin.hook.liveArenas().any { it.group.equals(part, ignoreCase = true) }
+            }
             if (!known) {
                 plugin.msg(player, "&cThere is no arena group called &e$group&c.")
                 return

@@ -20,6 +20,9 @@ class ArenaRepository(private val plugin: ArenaManagementPlugin) {
 
         fun find(name: String): ArenaInfo? = byName[name.lowercase()]
         fun hasGroup(name: String): Boolean = groups.any { it.equals(name, ignoreCase = true) }
+
+        /** The group's exact spelling as BedWars1058 stores it (its group check is case-sensitive). */
+        fun canonicalGroup(name: String): String? = groups.firstOrNull { it.equals(name, ignoreCase = true) }
         fun inGroup(group: String): List<ArenaInfo> = arenas.filter { it.group.equals(group, ignoreCase = true) && it.state != ArenaState.UNCONFIGURED }
         fun count(state: ArenaState): Int = arenas.count { it.state == state }
         val unassignedCount: Int get() = arenas.count { it.unassigned }
@@ -47,30 +50,40 @@ class ArenaRepository(private val plugin: ArenaManagementPlugin) {
         val defaultGroup = settings.defaultGroup
         val live = plugin.hook.liveArenas().associateBy { it.name.lowercase() }
         val result = LinkedHashMap<String, ArenaInfo>()
+        val bwFolder = plugin.hook.bedWarsPlugin?.dataFolder
+
+        // Groups: BedWars1058 keeps them in its config.yml (`arenaGroups`); "Default" is implicit.
+        // An arena whose yml names a group that is not in that list is treated as Default by
+        // BedWars1058 itself, so we do the same.
         val groups = TreeSet<String>(String.CASE_INSENSITIVE_ORDER)
         groups.add(defaultGroup)
-
-        val bwFolder = plugin.hook.bedWarsPlugin?.dataFolder
+        if (bwFolder != null) {
+            val configFile = File(bwFolder, "config.yml")
+            if (configFile.isFile) {
+                runCatching { YamlConfiguration.loadConfiguration(configFile).getStringList("arenaGroups") }
+                    .getOrNull()?.filter { it.isNotBlank() }?.forEach { groups.add(it) }
+            }
+        }
+        fun validGroup(name: String?): String = groups.firstOrNull { it.equals(name, ignoreCase = true) } ?: defaultGroup
 
         // 1) set-up arenas: Arenas/<name>.yml
         if (bwFolder != null) {
             File(bwFolder, "Arenas").listFiles { f -> f.isFile && f.name.endsWith(".yml", ignoreCase = true) }?.forEach { file ->
                 val name = file.nameWithoutExtension
                 val liveArena = live[name.lowercase()]
-                val group = liveArena?.group
-                    ?: runCatching { YamlConfiguration.loadConfiguration(file).getString("group") }.getOrNull()?.takeIf { it.isNotBlank() }
-                    ?: defaultGroup
+                val group = validGroup(
+                    liveArena?.group ?: runCatching { YamlConfiguration.loadConfiguration(file).getString("group") }.getOrNull()
+                )
                 val state = if (liveArena != null) ArenaState.ENABLED else ArenaState.DISABLED
                 result[name.lowercase()] = ArenaInfo(name, group, state, group.equals(defaultGroup, ignoreCase = true))
-                groups.add(group)
             }
         }
 
         // 2) loaded arenas whose file we could not see (different folder layout, etc.)
         for ((key, arena) in live) {
             if (key in result) continue
-            result[key] = ArenaInfo(arena.name, arena.group, ArenaState.ENABLED, arena.group.equals(defaultGroup, ignoreCase = true))
-            groups.add(arena.group)
+            val group = validGroup(arena.group)
+            result[key] = ArenaInfo(arena.name, group, ArenaState.ENABLED, group.equals(defaultGroup, ignoreCase = true))
         }
 
         // 3) world folders that were never set up
@@ -79,15 +92,6 @@ class ArenaRepository(private val plugin: ArenaManagementPlugin) {
             val key = dir.name.lowercase()
             if (key in result || key in excluded) return@forEach
             result[key] = ArenaInfo(dir.name, "", ArenaState.UNCONFIGURED, false)
-        }
-
-        // 4) groups BedWars1058 knows about even if no arena uses them yet
-        if (bwFolder != null) {
-            val configFile = File(bwFolder, "config.yml")
-            if (configFile.isFile) {
-                runCatching { YamlConfiguration.loadConfiguration(configFile).getStringList("arenaGroups") }
-                    .getOrNull()?.filter { it.isNotBlank() }?.forEach { groups.add(it) }
-            }
         }
 
         val sorted = result.values.sortedWith(compareBy(NaturalOrder) { it.name })

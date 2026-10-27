@@ -3,6 +3,7 @@ package dev.etran.bedwars1058.arenamanagement.bedwars
 import dev.etran.bedwars1058.arenamanagement.ArenaManagementPlugin
 import dev.etran.bedwars1058.arenamanagement.arena.LiveArena
 import org.bukkit.Bukkit
+import org.bukkit.entity.Player
 import org.bukkit.plugin.Plugin
 import java.lang.reflect.Method
 
@@ -59,11 +60,42 @@ class BedWarsHook(private val plugin: ArenaManagementPlugin) {
         return LiveArena(name, display, group, status, players, max)
     }
 
-    private fun call(target: Any, name: String): Any? {
-        val method: Method = target.javaClass.methods.firstOrNull { it.name == name && it.parameterCount == 0 } ?: return null
+    /** True when the player is currently in (or spectating) a BedWars1058 arena. */
+    fun isInArena(player: Player): Boolean {
+        val bw = api ?: return false
+        val util = call(bw, "getArenaUtil") ?: return false
+        return call(util, "getArenaByPlayer", player) != null
+    }
+
+    /**
+     * Joins like BedWars1058's own arena menu does: only waiting/starting arenas, via
+     * IArena#addPlayer(player, false). Returns false if refused or unavailable.
+     */
+    fun join(player: Player, arenaName: String): Boolean {
+        val arena = findLive(arenaName) ?: return false
+        val status = call(arena, "getStatus")?.toString()?.lowercase()
+        if (status != "waiting" && status != "starting") return false
+        return call(arena, "addPlayer", player, false) == true
+    }
+
+    /** Spectates a running arena: IArena#addSpectator(player, false, null). */
+    fun spectate(player: Player, arenaName: String): Boolean {
+        val arena = findLive(arenaName) ?: return false
+        if (call(arena, "getStatus")?.toString()?.lowercase() != "playing") return false
+        return call(arena, "addSpectator", player, false, null) == true
+    }
+
+    private fun findLive(name: String): Any? {
+        val bw = api ?: return null
+        val util = call(bw, "getArenaUtil") ?: return null
+        return call(util, "getArenaByName", name)
+    }
+
+    private fun call(target: Any, name: String, vararg args: Any?): Any? {
+        val method: Method = target.javaClass.methods.firstOrNull { it.name == name && it.parameterCount == args.size } ?: return null
         return try {
             method.isAccessible = true
-            method.invoke(target)
+            method.invoke(target, *args)
         } catch (_: Throwable) {
             null
         }

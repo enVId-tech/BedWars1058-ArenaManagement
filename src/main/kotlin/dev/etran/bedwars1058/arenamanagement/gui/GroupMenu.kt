@@ -75,7 +75,7 @@ class GroupMenu(plugin: ArenaManagementPlugin, player: Player) : Menu(plugin, pl
             lore += "&7Enabled: &a${members.count { it.state == ArenaState.ENABLED }}&7, disabled: &c${members.count { it.state == ArenaState.DISABLED }}"
             if (isDefault) lore += "&8(default group - maps here count as unassigned)"
             lore += ""
-            lore += if (movable.isNotEmpty()) "&eLeft-click &7move &f${movable.size}&7 selected map(s) here" else "&8Left-click: select maps first to move them here"
+            lore += if (isDefault) "&8Left-click: not available for the default group" else if (movable.isNotEmpty()) "&eLeft-click &7move &f${movable.size}&7 selected map(s) here" else "&8Left-click: select maps first to move them here"
             lore += "&eRight-click &7browse this group's maps"
             lore += if (isDefault) "&8Can not be removed" else "&eShift-right-click &7remove group"
             set(9 + index, icon("group", "&a$group", lore)) { click -> onGroupClick(group, click, movable.map { it.name }, isDefault) }
@@ -85,7 +85,9 @@ class GroupMenu(plugin: ArenaManagementPlugin, player: Player) : Menu(plugin, pl
     private fun onGroupClick(group: String, click: ClickType, movableNames: List<String>, isDefault: Boolean) {
         when (click) {
             ClickType.LEFT -> {
-                if (movableNames.isEmpty()) {
+                if (isDefault) {
+                    msg("&cBedWars1058 can't assign the default group by command - maps without a group are already in it.")
+                } else if (movableNames.isEmpty()) {
                     msg("&cSelect some set-up maps first (shift-click them in the map manager, or use the selection tools).")
                 } else {
                     plugin.ops.setGroup(player, movableNames, group)

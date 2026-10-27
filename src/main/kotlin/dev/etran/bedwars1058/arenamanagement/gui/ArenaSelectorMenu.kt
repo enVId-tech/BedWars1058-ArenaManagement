@@ -6,6 +6,7 @@ import dev.etran.bedwars1058.arenamanagement.util.ItemBuilder
 import dev.etran.bedwars1058.arenamanagement.util.NaturalOrder
 import dev.etran.bedwars1058.arenamanagement.util.Text
 import org.bukkit.entity.Player
+import org.bukkit.event.inventory.ClickType
 
 /**
  * `/bw gui [group]` - the "Click to join" menu players use. Replaces BedWars1058's own arena-gui
@@ -45,14 +46,22 @@ class ArenaSelectorMenu(
     private val perPage: Int get() = maxOf(1, slots.size)
     private val pageCount: Int get() = maxOf(1, (arenas.size + perPage - 1) / perPage)
 
+    /** "default" (what `/bw gui` uses with no argument) means every group, like BedWars1058. */
+    private val groupFilter: List<String>? = group
+        ?.takeUnless { it.equals(settings.defaultGroup, ignoreCase = true) }
+        ?.split('+')
+        ?.filter { it.isNotBlank() }
+
     private fun load(): List<LiveArena> =
         plugin.hook.liveArenas()
-            .filter { group == null || it.group.equals(group, ignoreCase = true) }
-            .filter { settings.guiShowPlaying || it.status == "waiting" || it.status == "starting" }
+            // BedWars1058 never lists arenas that are restarting.
+            .filter { it.status == "waiting" || it.status == "starting" || it.status == "playing" }
+            .filter { arena -> groupFilter == null || groupFilter.any { it.equals(arena.group, ignoreCase = true) } }
+            .filter { settings.guiShowPlaying || it.status != "playing" }
             .sortedWith(compareBy(NaturalOrder) { it.name })
 
     override fun title(): String {
-        val base = if (group == null) settings.guiTitleAll else Text.fill(settings.guiTitle, "group" to group)
+        val base = if (groupFilter == null) settings.guiTitleAll else Text.fill(settings.guiTitle, "group" to groupFilter.joinToString("+"))
         val suffix = if (pageCount > 1) Text.fill(settings.guiTitlePageSuffix, "page" to (page + 1).toString(), "pages" to pageCount.toString()) else ""
         return base + suffix
     }
@@ -80,9 +89,9 @@ class ArenaSelectorMenu(
         slots.forEachIndexed { index, slot ->
             val arena = pageArenas.getOrNull(index)
             if (arena != null) {
-                set(slot, arenaItem(arena)) { plugin.ops.join(player, arena.name).also { player.closeInventory() } }
+                set(slot, arenaItem(arena)) { click -> onArenaClick(arena, click) }
             } else if (skipped.isNotBlank()) {
-                set(slot, ItemBuilder(skipped).name(" ").build())
+                set(slot, ItemBuilder(skipped).name(settings.guiSkippedName).build()) { plugin.ops.joinRandom(player) }
             }
         }
 
@@ -98,6 +107,21 @@ class ArenaSelectorMenu(
         }
     }
 
+    /** Same as BedWars1058's menu: left-click joins a waiting/starting arena, right-click spectates a running one. */
+    private fun onArenaClick(arena: LiveArena, click: ClickType) {
+        when (click) {
+            ClickType.LEFT -> {
+                if (plugin.hook.join(player, arena.name)) player.closeInventory()
+                else msg("&cYou can't join that arena right now.")
+            }
+            ClickType.RIGHT -> {
+                if (plugin.hook.spectate(player, arena.name)) player.closeInventory()
+                else msg("&cYou can only spectate arenas that are running a game.")
+            }
+            else -> {}
+        }
+    }
+
     /** The title shows the page, so a page turn opens a fresh menu instead of redrawing. */
     private fun turn(delta: Int) {
         go(ArenaSelectorMenu(plugin, player, group, (page + delta).coerceIn(0, pageCount - 1)))
@@ -105,15 +129,22 @@ class ArenaSelectorMenu(
 
     private fun arenaItem(arena: LiveArena) = ItemBuilder(settings.guiItemSpec(arena.status))
         .name(fill(settings.guiName, arena))
-        .lore(settings.guiLore.map { fill(it, arena) })
+        .lore(
+            settings.guiLore
+                // BedWars1058 hides lines mentioning {group} for arenas in the default group.
+                .filterNot { it.contains("{group}") && arena.group.equals(settings.defaultGroup, ignoreCase = true) }
+                .map { fill(it, arena) }
+        )
         .glow(settings.guiItemEnchanted(arena.status))
         .amount(1)
         .build()
 
     private fun fill(template: String, arena: LiveArena) = Text.fill(
         template,
-        "name" to arena.name,
+        "name" to arena.displayName,
+        "map_name" to arena.name,
         "displayName" to arena.displayName,
+        "on" to arena.players.toString(),
         "group" to arena.group,
         "players" to arena.players.toString(),
         "max" to arena.maxPlayers.toString(),

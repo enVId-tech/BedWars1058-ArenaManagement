@@ -31,14 +31,14 @@ BedWars1058 is not modified. The plugin cancels these commands before BedWars105
 
 Any of them **with arguments** (e.g. `/bw setupArena MyMap`, `/bw arenaGroup create X`) still runs
 plain BedWars1058, so scripts and muscle memory keep working. Each override can be switched off in
-`config.yml` (`override:`). Management menus need the `bw.setup` permission (configurable).
+`config.yml` (`override:`). Map manager / arena list need `bw.setup`; the group manager needs `bw.groups` (both configurable). Aliases `bw`, `bedwars` and `bedwars1058` are all handled.
 
 ## Map manager (`/bw setupArena`)
 
 Every map, alphabetical (natural order: `map2` before `map10`), 45 per page.
 
 - **Left-click** - set the map up. If it's enabled it is disabled first, then BedWars1058's setup starts.
-- **Right-click** - options for that one map: set up, change group (`arenaGroup setGroup`), clone
+- **Right-click** - options for that one map: set up, change group (`arenaGroup set`), clone
   (`cloneArena`), enable, disable, delete (`delArena`, with confirmation), add to selection.
 - **Shift-click** - add/remove from the selection.
 
@@ -87,8 +87,8 @@ slot settings are no longer used.
 - Set `gui.slots: [10, 11, ...]` to choose exact slots, like BedWars1058's `use-slots`.
 - Same capabilities as the BedWars1058 menu: per-state item + enchant glow (waiting / starting /
   playing), `show-playing`, an item for unused slots, configurable name/lore with
-  `{name} {displayName} {group} {players} {max} {status}`, live-refreshing player counts.
-- Click a map to join (`bw join <arena>`).
+  `the same placeholders as BedWars1058 (`{name} {map_name} {on} {max} {status} {group}`)`, live-refreshing player counts.
+- Left-click joins, right-click spectates (like BedWars1058).
 
 ## Compatibility notes (1.8 -> latest)
 
@@ -101,6 +101,27 @@ Compiled against the 1.8.8 API; version differences are handled at runtime:
 - Inventory titles are trimmed to 32 characters on 1.8-1.13, where longer titles throw.
 - No sounds, no direct enchantment/material constants.
 - New-style version numbers (26.x) are treated as "newer than everything".
+
+## Behaviour taken from the BedWars1058 source
+
+These were checked against the BedWars1058 source (not just assumed):
+
+- **Everything runs as the player.** All its management commands reject console, so bulk jobs run as
+  the player who clicked (and stop if they log out).
+- **`arenaGroup set <arena> <group>`** is the real assign command. The group must already exist in
+  `arenaGroups` and is matched case-sensitively, so the plugin creates missing groups first and
+  uses each group's exact spelling.
+- **The default group can't be assigned by command**, so it is not offered as a target. A map whose
+  yml names a group that isn't in `arenaGroups` is treated as default by BedWars1058 (and here).
+- **`delArena` needs to be typed twice within 2 seconds.** The plugin shows its own confirmation
+  screen, then sends it twice (disabling the arena first).
+- **`setupArena` rejects capital letters.** Maps with capitals show a "rename the folder" message,
+  and clone names must be lowercase.
+- **`/bw gui` with no argument means group `default` = every arena.** `a+b` selects several groups.
+  Restarting arenas are hidden, `{group}` lore lines are hidden for the default group, left-click joins
+  waiting/starting arenas, right-click spectates running ones, and the optional skipped-slot item
+  runs `bw join random` - all as in BedWars1058's own menu.
+- `/bw gui` is left to BedWars1058 while you're inside an arena (it ignores it there too).
 
 ## Developer note
 This plugin is coded with AI assistance and architected completely by me. Regardless, use at your own risk.

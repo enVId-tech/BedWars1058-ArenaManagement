@@ -38,6 +38,8 @@ class GroupPickerMenu(
             )
         }
         for (group in snapshot.groups) {
+            // BedWars1058 can't assign the default group by command, so only the filter may pick it.
+            if (!includeAll && group.equals(plugin.settings.defaultGroup, ignoreCase = true)) continue
             val members = snapshot.inGroup(group)
             list += Entry(
                 "&a$group",

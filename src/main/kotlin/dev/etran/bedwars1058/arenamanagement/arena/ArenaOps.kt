@@ -13,8 +13,13 @@ class ArenaOps(private val plugin: ArenaManagementPlugin) {
     private val repo get() = plugin.repository
     private val settings get() = plugin.settings
 
-    private val validName = Regex("[A-Za-z0-9_\\-]{1,32}")
-    fun isValidName(name: String): Boolean = validName.matches(name)
+    private val validGroupName = Regex("[A-Za-z0-9_\\-]{1,32}")
+
+    /** BedWars1058 refuses to set up maps with capital letters (and '+' is its group separator). */
+    private val validArenaName = Regex("[a-z0-9_\\-]{1,32}")
+
+    fun isValidName(name: String): Boolean = validGroupName.matches(name)
+    fun isValidArenaName(name: String): Boolean = validArenaName.matches(name)
 
     private fun template(key: String, vararg values: Pair<String, String>): String {
         var command = settings.command(key)
@@ -33,9 +38,7 @@ class ArenaOps(private val plugin: ArenaManagementPlugin) {
         expected: Int,
         verify: ((ArenaRepository.Snapshot) -> Int)?
     ) {
-        // One arena: let the player see BedWars1058's own feedback. Many: keep chat quiet.
-        val asConsole = expected > 1 && settings.bulkRunsAsConsole
-        plugin.runner.submit(BulkRunner.Job(player, title, commands, asConsole, expected, verify))
+        plugin.runner.submit(BulkRunner.Job(player, title, commands, expected, verify))
     }
 
     // ---------------------------------------------------------------- setup
@@ -45,6 +48,10 @@ class ArenaOps(private val plugin: ArenaManagementPlugin) {
         val info = repo.snapshot(force = true).find(name)
         if (info == null) {
             plugin.msg(player, "&cNo map named &e$name&c.")
+            return
+        }
+        if (info.name != info.name.lowercase()) {
+            plugin.msg(player, "&cBedWars1058 can't set up &e${info.name}&c: map names must be lowercase. Rename the world folder to &a${info.name.lowercase()}&c.")
             return
         }
         player.closeInventory()
@@ -63,6 +70,14 @@ class ArenaOps(private val plugin: ArenaManagementPlugin) {
     // ---------------------------------------------------------------- bulk-capable actions
 
     fun setGroup(player: Player, names: Collection<String>, group: String) {
+        if (group.equals(settings.defaultGroup, ignoreCase = true)) {
+            plugin.msg(player, "&cBedWars1058 can't assign the &e${settings.defaultGroup}&c group with a command - it is the group every un-grouped map already has. Pick or create another group.")
+            return
+        }
+        if (!isValidName(group)) {
+            plugin.msg(player, "&cGroup names may only contain letters, digits, _ and - (max 32).")
+            return
+        }
         val snapshot = repo.snapshot(force = true)
         val infos = names.mapNotNull { snapshot.find(it) }
         val targets = infos.filter { it.state != ArenaState.UNCONFIGURED }
@@ -70,12 +85,15 @@ class ArenaOps(private val plugin: ArenaManagementPlugin) {
         if (skipped > 0) plugin.msg(player, "&7Skipping &e$skipped&7 map(s) that are not set up yet (set them up first).")
         if (targets.isEmpty()) return
 
+        // BedWars1058 only accepts groups that exist, and compares names case-sensitively.
+        val existing = snapshot.canonicalGroup(group)
+        val finalGroup = existing ?: group
         val commands = ArrayList<String>()
-        if (!snapshot.hasGroup(group)) commands += template("create-group", "group" to group)
-        targets.forEach { commands += template("set-group", "arena" to it.name, "group" to group) }
+        if (existing == null) commands += template("create-group", "group" to finalGroup)
+        targets.forEach { commands += template("set-group", "arena" to it.name, "group" to finalGroup) }
 
-        submit(player, "Moving ${targets.size} map(s) to group $group", commands, targets.size) { snap ->
-            targets.count { snap.find(it.name)?.group.equals(group, ignoreCase = true) }
+        submit(player, "Moving ${targets.size} map(s) to group $finalGroup", commands, targets.size) { snap ->
+            targets.count { snap.find(it.name)?.group.equals(finalGroup, ignoreCase = true) }
         }
     }
 
@@ -111,6 +129,8 @@ class ArenaOps(private val plugin: ArenaManagementPlugin) {
         for (target in targets) {
             // BedWars1058 refuses to delete a loaded arena, so switch it off first.
             if (target.state == ArenaState.ENABLED) commands += template("disable", "arena" to target.name)
+            // delArena only deletes when it is typed a second time within 2 seconds.
+            commands += template("delete", "arena" to target.name)
             commands += template("delete", "arena" to target.name)
         }
         submit(player, "Deleting ${targets.size} map(s)", commands, targets.size) { snap ->
@@ -139,7 +159,7 @@ class ArenaOps(private val plugin: ArenaManagementPlugin) {
             }
             val target = newNameFor(info.name)
             when {
-                !isValidName(target) -> plugin.msg(player, "&7Skipping &e${info.name}&7: &e$target&7 is not a valid name (letters, digits, _ and - only).")
+                !isValidArenaName(target) -> plugin.msg(player, "&7Skipping &e${info.name}&7: &e$target&7 is not a valid map name (lowercase letters, digits, _ and - only).")
                 snapshot.find(target) != null || !usedNames.add(target.lowercase()) -> plugin.msg(player, "&7Skipping &e${info.name}&7: a map named &e$target&7 already exists.")
                 else -> pairs += info to target
             }
@@ -175,14 +195,14 @@ class ArenaOps(private val plugin: ArenaManagementPlugin) {
             plugin.msg(player, "&cThe default group can not be removed.")
             return
         }
-        runAsPlayer(player, template("remove-group", "group" to group))
+        runAsPlayer(player, template("remove-group", "group" to (repo.snapshot().canonicalGroup(group) ?: group)))
         repo.invalidate()
     }
 
     // ---------------------------------------------------------------- chat output
 
-    fun join(player: Player, arena: String) {
-        runAsPlayer(player, template("join", "arena" to arena))
+    fun joinRandom(player: Player) {
+        runAsPlayer(player, template("join-random"))
     }
 
     fun sendArenaList(player: Player) {

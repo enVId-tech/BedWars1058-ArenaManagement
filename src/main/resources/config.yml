@@ -25,29 +25,31 @@ bedwars:
 # them if your BedWars1058 version words something differently. Placeholders: {arena} {group} {new}
 commands:
   setup: "bw setupArena {arena}"
-  set-group: "bw arenaGroup setGroup {arena} {group}"
+  set-group: "bw arenaGroup set {arena} {group}"
   create-group: "bw arenaGroup create {group}"
   remove-group: "bw arenaGroup remove {group}"
   clone: "bw cloneArena {arena} {new}"
   delete: "bw delArena {arena}"
   disable: "bw disableArena {arena}"
   enable: "bw enableArena {arena}"
-  join: "bw join {arena}"
-  # Who runs the commands for multi-arena (bulk) jobs. CONSOLE keeps your chat from being flooded
-  # with one BedWars message per arena; PLAYER runs them as the clicking player instead.
-  # Single-arena actions and setup are always run as the player.
-  bulk-run-as: CONSOLE
+  join-random: "bw join random"
+  # NOTE: BedWars1058 rejects console for all of these, so everything (including bulk jobs) runs
+  # as the player who clicked. delArena makes you type it twice within 2 seconds to confirm; the
+  # plugin sends it twice itself after its own confirmation screen.
 
 # Which commands the plugin takes over. Takes over `/bw <sub>` only when typed WITHOUT extra
 # arguments (so `/bw setupArena MyMap` still goes straight to BedWars1058).
 override:
-  aliases: ["bw", "bedwars"]
+  aliases: ["bw", "bedwars", "bedwars1058"]
   setup-arena: true
   arena-group: true
   arena-list: true
   gui: true
-  # Players need this to use the management menus (same node BedWars1058 uses for setup).
+  # Permission needed to get the map manager / arena list menus (BedWars1058's own setup node),
+  # and the group manager (BedWars1058's own group node). Without them the command falls through
+  # to BedWars1058, which prints its normal no-permission message.
   permission: "bw.setup"
+  group-permission: "bw.groups"
 
 # --- Bulk jobs ------------------------------------------------------------------------------
 bulk:
@@ -56,7 +58,7 @@ bulk:
   commands-per-step: 1
   ticks-between-steps: 3
   # After a job finishes, wait this long then re-read the arenas to report what actually changed.
-  verify-delay-ticks: 20
+  verify-delay-ticks: 60
   # Ticks to wait between disabling an arena and starting its setup.
   setup-delay-ticks: 20
   confirm-delete: true
@@ -80,19 +82,25 @@ gui:
   slots: []
 
   # false hides arenas whose game is already running (BedWars1058's "show-playing").
+  # Left-click joins a waiting/starting arena; right-click spectates a running one.
   show-playing: true
-  # Item for slots that hold no arena. Leave empty for no item (empty slot).
+  # Item for slots that hold no arena (like BedWars1058's "skipped-slot"). Clicking it runs
+  # commands.join-random. Leave empty for plain empty slots.
   skipped-slot-item: ""
+  skipped-slot-name: "&7Join a random arena"
   # How often the open menu refreshes live player counts / states.
   refresh-ticks: 20
 
-  name: "&a{displayName}"
+  # Placeholders (same as BedWars1058): {name} display name, {map_name} arena name, {on} players,
+  # {max}, {status}, {group}. Lines containing {group} are hidden for the Default group.
+  name: "&a{name}"
   lore:
-    - "&7Players: &f{players}&7/&f{max}"
+    - "&7Players: &f{on}&7/&f{max}"
     - "&7Status: {status}"
     - "&7Group: &f{group}"
     - ""
-    - "&eClick to join"
+    - "&eLeft-click &7to join"
+    - "&eRight-click &7to spectate"
 
   status-names:
     waiting: "&aWaiting"
