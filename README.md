@@ -123,6 +123,21 @@ These were checked against the BedWars1058 source (not just assumed):
   runs `bw join random` - all as in BedWars1058's own menu.
 - `/bw gui` is left to BedWars1058 while you're inside an arena (it ignores it there too).
 
+## BedWars1058-MapLoader compatibility
+
+MapLoader lists "parked" arenas in BedWars1058 with no world until someone joins, and wakes them through
+command and join hooks. So this plugin:
+
+- sends every BedWars1058 command as if the player typed it (fires `PlayerCommandPreprocessEvent` first),
+  which is what lets MapLoader disable or wake parked arenas instead of BedWars1058 throwing a
+  NullPointerException on an arena with no world;
+- joins from the `/bw gui` menu with `bw join <arena>`, not by calling the API directly (MapLoader cancels
+  the direct join and joins the player itself, which used to print a bogus "can't join" message);
+- treats parked arenas as normal enabled arenas (shown as "parked"), and also lists maps that exist only in
+  the MapLoader library (`storage.path`, folders or zips) as "not set up" when they have no arena config.
+
+Without MapLoader, an arena with no loaded world is reported instead of being touched.
+
 ## Developer note
 This plugin is coded with AI assistance and architected completely by me. Regardless, use at your own risk.
 

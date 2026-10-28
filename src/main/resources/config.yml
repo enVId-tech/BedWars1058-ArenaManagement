@@ -87,7 +87,9 @@ gui:
   # false hides arenas whose game is already running (BedWars1058's "show-playing").
   # Left-click joins a waiting/starting arena; right-click spectates a running one.
   show-playing: true
-  # Item for slots that hold no arena (like BedWars1058's "skipped-slot"). Clicking it runs
+  # Fills every slot that is not an arena slot (the border). Leave empty for no filler.
+  filler-item: "BLACK_STAINED_GLASS_PANE|STAINED_GLASS_PANE:15"
+  # Item for arena slots that hold no arena (like BedWars1058's "skipped-slot"). Clicking it runs
   # commands.join-random. Leave empty for plain empty slots.
   skipped-slot-item: ""
   skipped-slot-name: "&7Join a random arena"

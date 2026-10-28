@@ -85,6 +85,13 @@ class ArenaSelectorMenu(
         page = page.coerceIn(0, pageCount - 1)
         val pageArenas = arenas.drop(page * perPage).take(perPage)
 
+        // Everything that is not an arena slot (the border) is a black glass pane; nav buttons replace some of them.
+        val filler = settings.guiFillerItem
+        if (filler.isNotBlank()) {
+            val pane = ItemBuilder(filler).name(" ").build()
+            for (slot in 0 until layoutRows * 9) if (slot !in slots) set(slot, pane.clone())
+        }
+
         val skipped = settings.guiSkippedItem
         slots.forEachIndexed { index, slot ->
             val arena = pageArenas.getOrNull(index)

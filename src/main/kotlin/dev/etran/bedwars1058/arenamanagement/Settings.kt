@@ -39,6 +39,7 @@ class Settings(private val plugin: ArenaManagementPlugin) {
     val guiRowsMin: Int get() = cfg.getInt("gui.rows-min", 3).coerceIn(3, 6)
     val guiCustomSlots: List<Int> get() = cfg.getIntegerList("gui.slots")
     val guiShowPlaying: Boolean get() = cfg.getBoolean("gui.show-playing", true)
+    val guiFillerItem: String get() = cfg.getString("gui.filler-item") ?: ""
     val guiSkippedItem: String get() = cfg.getString("gui.skipped-slot-item") ?: ""
     val guiSkippedName: String get() = cfg.getString("gui.skipped-slot-name") ?: " "
     val guiRefreshTicks: Long get() = cfg.getLong("gui.refresh-ticks", 20L).coerceAtLeast(5L)
