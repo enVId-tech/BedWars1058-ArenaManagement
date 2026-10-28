@@ -4,6 +4,7 @@ import dev.etran.bedwars1058.arenamanagement.ArenaManagementPlugin
 import dev.etran.bedwars1058.arenamanagement.util.NaturalOrder
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
+import org.bukkit.event.player.PlayerCommandPreprocessEvent
 
 /**
  * Every management action, expressed as BedWars1058 commands (templates from config.yml). The
@@ -27,8 +28,36 @@ class ArenaOps(private val plugin: ArenaManagementPlugin) {
         return command.trim().removePrefix("/")
     }
 
-    private fun runAsPlayer(player: Player, command: String) {
-        Bukkit.dispatchCommand(player, command)
+    /**
+     * Runs a command exactly as if the player had typed it: the PlayerCommandPreprocessEvent is fired first,
+     * so plugins that hook commands (BedWars1058-MapLoader waking a parked arena on `bw join` / `bw disableArena`,
+     * permission plugins, ...) see it. Bukkit.dispatchCommand alone skips that event.
+     * Returns false if BedWars1058 threw an exception.
+     */
+    fun runAsPlayer(player: Player, command: String): Boolean = try {
+        val event = PlayerCommandPreprocessEvent(player, "/$command")
+        Bukkit.getPluginManager().callEvent(event)
+        if (!event.isCancelled) Bukkit.dispatchCommand(player, event.message.removePrefix("/"))
+        true
+    } catch (t: Throwable) {
+        val cause = generateSequence<Throwable>(t) { it.cause }.last()
+        plugin.logger.warning("BedWars1058 threw while running '/$command': ${cause.javaClass.simpleName}: ${cause.message}")
+        plugin.msg(player, "&cBedWars1058 hit an internal error running &e/$command&c. See the console for details.")
+        false
+    }
+
+    /**
+     * An arena BedWars1058 lists but has no world for. With BedWars1058-MapLoader that is a normal "parked" arena
+     * (its command hook handles disabling it). Without it BedWars1058 throws a NullPointerException when disabling.
+     */
+    private fun cannotHandle(info: ArenaInfo): Boolean = !info.worldLoaded && plugin.mapLoader == null
+
+    private fun brokenMessage(player: Player, name: String) {
+        plugin.msg(
+            player,
+            "&e$name&c is loaded in BedWars1058 but its world is not (the world folder is probably missing or failed to load), " +
+                "so BedWars1058 can't disable or set it up. Fix or restore the world, then restart or reload the server."
+        )
     }
 
     private fun submit(
@@ -54,10 +83,14 @@ class ArenaOps(private val plugin: ArenaManagementPlugin) {
             plugin.msg(player, "&cBedWars1058 can't set up &e${info.name}&c: map names must be lowercase. Rename the world folder to &a${info.name.lowercase()}&c.")
             return
         }
+        if (cannotHandle(info)) {
+            brokenMessage(player, info.name)
+            return
+        }
         player.closeInventory()
         if (info.state == ArenaState.ENABLED) {
             plugin.msg(player, "&e${info.name}&7 is enabled - disabling it first, then starting setup...")
-            runAsPlayer(player, template("disable", "arena" to info.name))
+            if (!runAsPlayer(player, template("disable", "arena" to info.name))) return
             repo.invalidate()
             plugin.later(settings.setupDelayTicks) {
                 if (player.isOnline) runAsPlayer(player, template("setup", "arena" to info.name))
@@ -111,8 +144,9 @@ class ArenaOps(private val plugin: ArenaManagementPlugin) {
     fun disable(player: Player, names: Collection<String>) {
         val snapshot = repo.snapshot(force = true)
         val infos = names.mapNotNull { snapshot.find(it) }
-        val targets = infos.filter { it.state == ArenaState.ENABLED }
-        reportSkipped(player, infos, targets, "disable", "already disabled or not set up")
+        val targets = infos.filter { it.state == ArenaState.ENABLED && !cannotHandle(it) }
+        infos.filter { cannotHandle(it) }.forEach { brokenMessage(player, it.name) }
+        reportSkipped(player, infos.filter { !cannotHandle(it) }, targets, "disable", "already disabled or not set up")
         if (targets.isEmpty()) return
         submit(player, "Disabling ${targets.size} map(s)", targets.map { template("disable", "arena" to it.name) }, targets.size) { snap ->
             targets.count { snap.find(it.name)?.state != ArenaState.ENABLED }
@@ -122,8 +156,9 @@ class ArenaOps(private val plugin: ArenaManagementPlugin) {
     fun delete(player: Player, names: Collection<String>) {
         val snapshot = repo.snapshot(force = true)
         val infos = names.mapNotNull { snapshot.find(it) }
-        val targets = infos.filter { it.state != ArenaState.UNCONFIGURED }
-        reportSkipped(player, infos, targets, "delete", "not set up, nothing to delete")
+        val targets = infos.filter { it.state != ArenaState.UNCONFIGURED && !cannotHandle(it) }
+        infos.filter { cannotHandle(it) }.forEach { brokenMessage(player, it.name) }
+        reportSkipped(player, infos.filter { !cannotHandle(it) }, targets, "delete", "not set up, nothing to delete")
         if (targets.isEmpty()) return
         val commands = ArrayList<String>()
         for (target in targets) {
@@ -200,6 +235,11 @@ class ArenaOps(private val plugin: ArenaManagementPlugin) {
     }
 
     // ---------------------------------------------------------------- chat output
+
+    /** Joins through `bw join <arena>`, so BedWars1058's own checks (and MapLoader's wake-up) apply. */
+    fun join(player: Player, arena: String) {
+        runAsPlayer(player, template("join", "arena" to arena))
+    }
 
     fun joinRandom(player: Player) {
         runAsPlayer(player, template("join-random"))

@@ -35,6 +35,12 @@ class ArenaManagementPlugin : JavaPlugin() {
     lateinit var interceptor: CommandInterceptor
         private set
 
+    /**
+     * BedWars1058-MapLoader, if installed. It lists "parked" arenas in BedWars1058 without a loaded world and
+     * wakes them through command / join hooks, so everything here goes through those hooks (see ArenaOps).
+     */
+    val mapLoader: org.bukkit.plugin.Plugin? get() = server.pluginManager.getPlugin("BedWars1058-MapLoader")
+
     /** `/bw gui` menus currently open; the refresh task keeps their player counts live. */
     val liveSelectors: MutableSet<ArenaSelectorMenu> = LinkedHashSet()
 

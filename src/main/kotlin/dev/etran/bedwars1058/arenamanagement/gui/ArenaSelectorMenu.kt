@@ -111,8 +111,10 @@ class ArenaSelectorMenu(
     private fun onArenaClick(arena: LiveArena, click: ClickType) {
         when (click) {
             ClickType.LEFT -> {
-                if (plugin.hook.join(player, arena.name)) player.closeInventory()
-                else msg("&cYou can't join that arena right now.")
+                // `bw join` (not IArena#addPlayer directly) so BedWars1058 gives its normal feedback and
+                // BedWars1058-MapLoader can wake a parked arena and join the player when it is ready.
+                player.closeInventory()
+                plugin.ops.join(player, arena.name)
             }
             ClickType.RIGHT -> {
                 if (plugin.hook.spectate(player, arena.name)) player.closeInventory()

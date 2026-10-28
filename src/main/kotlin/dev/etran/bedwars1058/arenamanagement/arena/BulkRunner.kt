@@ -66,7 +66,7 @@ class BulkRunner(private val plugin: ArenaManagementPlugin) {
     private fun dispatch(job: Job, command: String) {
         try {
             // BedWars1058 refuses console for every management command, so jobs run as the player.
-            Bukkit.dispatchCommand(job.owner, command)
+            plugin.ops.runAsPlayer(job.owner, command)
         } catch (t: Throwable) {
             plugin.logger.warning("Command '$command' failed: ${t.javaClass.simpleName}: ${t.message}")
         }

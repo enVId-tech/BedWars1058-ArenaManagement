@@ -15,7 +15,12 @@ data class ArenaInfo(
     val name: String,
     val group: String,
     val state: ArenaState,
-    val unassigned: Boolean
+    val unassigned: Boolean,
+    /**
+     * False when BedWars1058 lists the arena but has no world for it. With BedWars1058-MapLoader this is
+     * normal ("parked": the world loads when someone joins); without it, it means the world failed to load.
+     */
+    val worldLoaded: Boolean = true
 )
 
 /** A running arena as seen by BedWars1058 (only enabled arenas exist here). */
@@ -25,7 +30,8 @@ data class LiveArena(
     val group: String,
     val status: String,
     val players: Int,
-    val maxPlayers: Int
+    val maxPlayers: Int,
+    val worldLoaded: Boolean = true
 )
 
 /** Filters for the manager list. Empty / null fields mean "don't filter on this". */

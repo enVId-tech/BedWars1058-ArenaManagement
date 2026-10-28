@@ -115,7 +115,7 @@ class ArenaBrowserMenu(plugin: ArenaManagementPlugin, player: Player) : Menu(plu
             else -> "&f${arena.group}"
         }
         val lore = listOf(
-            "&7State: ${arena.state.color}${arena.state.label}",
+            "&7State: ${arena.state.color}${arena.state.label}" + if (!arena.worldLoaded) (if (plugin.mapLoader != null) " &b(parked)" else " &4(world not loaded!)") else "",
             "&7Group: $group",
             if (selected) "&b✔ Selected" else "&8Not selected",
             "",

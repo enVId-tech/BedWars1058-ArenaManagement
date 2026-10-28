@@ -32,7 +32,10 @@ commands:
   delete: "bw delArena {arena}"
   disable: "bw disableArena {arena}"
   enable: "bw enableArena {arena}"
+  join: "bw join {arena}"
   join-random: "bw join random"
+  # Commands are sent as if the player typed them (the command event is fired), so plugins that hook
+  # them - e.g. BedWars1058-MapLoader waking a parked arena on `bw join` / `bw disableArena` - still work.
   # NOTE: BedWars1058 rejects console for all of these, so everything (including bulk jobs) runs
   # as the player who clicked. delArena makes you type it twice within 2 seconds to confirm; the
   # plugin sends it twice itself after its own confirmation screen.

@@ -22,7 +22,14 @@ class ArenaOptionsMenu(plugin: ArenaManagementPlugin, player: Player, private va
         val enabled = arena.state == ArenaState.ENABLED
         val groupText = if (configured) arena.group + if (arena.unassigned) " (unassigned)" else "" else "-"
 
-        set(4, icon("info", "&f${arena.name}", listOf("&7State: ${arena.state.color}${arena.state.label}", "&7Group: &f$groupText")))
+        set(
+            4,
+            icon(
+                "info", "&f${arena.name}",
+                listOf("&7State: ${arena.state.color}${arena.state.label}", "&7Group: &f$groupText") +
+                    if (!arena.worldLoaded) (if (plugin.mapLoader != null) listOf("", "&bParked by MapLoader: loads when played.") else listOf("", "&4World not loaded in BedWars1058.", "&cDisable / set up won't work until it is fixed.")) else emptyList()
+            )
+        )
 
         set(
             10,

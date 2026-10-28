@@ -45,6 +45,16 @@ class ArenaRepository(private val plugin: ArenaManagementPlugin) {
         cached = null
     }
 
+    /** The BedWars1058-MapLoader map library folder (`storage.path`), if that plugin is installed. */
+    private fun mapLibraryDir(): File? {
+        val loader = plugin.mapLoader ?: return null
+        val configFile = File(loader.dataFolder, "config.yml")
+        val path = runCatching { YamlConfiguration.loadConfiguration(configFile).getString("storage.path") }.getOrNull() ?: "bedwars_worlds"
+        val file = File(path)
+        val dir = if (file.isAbsolute) file else File(Bukkit.getWorldContainer(), path)
+        return dir.takeIf { it.isDirectory }
+    }
+
     private fun build(): Snapshot {
         val settings = plugin.settings
         val defaultGroup = settings.defaultGroup
@@ -75,7 +85,7 @@ class ArenaRepository(private val plugin: ArenaManagementPlugin) {
                     liveArena?.group ?: runCatching { YamlConfiguration.loadConfiguration(file).getString("group") }.getOrNull()
                 )
                 val state = if (liveArena != null) ArenaState.ENABLED else ArenaState.DISABLED
-                result[name.lowercase()] = ArenaInfo(name, group, state, group.equals(defaultGroup, ignoreCase = true))
+                result[name.lowercase()] = ArenaInfo(name, group, state, group.equals(defaultGroup, ignoreCase = true), worldLoaded = liveArena?.worldLoaded ?: true)
             }
         }
 
@@ -83,15 +93,24 @@ class ArenaRepository(private val plugin: ArenaManagementPlugin) {
         for ((key, arena) in live) {
             if (key in result) continue
             val group = validGroup(arena.group)
-            result[key] = ArenaInfo(arena.name, group, ArenaState.ENABLED, group.equals(defaultGroup, ignoreCase = true))
+            result[key] = ArenaInfo(arena.name, group, ArenaState.ENABLED, group.equals(defaultGroup, ignoreCase = true), worldLoaded = arena.worldLoaded)
         }
 
-        // 3) world folders that were never set up
+        // 3) maps that were never set up: world folders in the server root, plus the MapLoader library
         val excluded = settings.excludedWorlds
-        Bukkit.getWorldContainer().listFiles { f -> f.isDirectory && File(f, "level.dat").isFile }?.forEach { dir ->
-            val key = dir.name.lowercase()
-            if (key in result || key in excluded) return@forEach
-            result[key] = ArenaInfo(dir.name, "", ArenaState.UNCONFIGURED, false)
+        fun addUnconfigured(name: String) {
+            val key = name.lowercase()
+            if (key in result || key in excluded) return
+            result[key] = ArenaInfo(name, "", ArenaState.UNCONFIGURED, false)
+        }
+        Bukkit.getWorldContainer().listFiles { f -> f.isDirectory && File(f, "level.dat").isFile }?.forEach { addUnconfigured(it.name) }
+        mapLibraryDir()?.listFiles()?.forEach { child ->
+            val n = child.name
+            when {
+                n.startsWith(".") -> {}
+                child.isDirectory && (File(child, "region").isDirectory || File(child, "level.dat").isFile || File(child, "dimensions").isDirectory) -> addUnconfigured(n)
+                child.isFile && n.endsWith(".zip", ignoreCase = true) && n.length > 4 -> addUnconfigured(n.substring(0, n.length - 4))
+            }
         }
 
         val sorted = result.values.sortedWith(compareBy(NaturalOrder) { it.name })

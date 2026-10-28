@@ -87,7 +87,13 @@ class MenuListener(private val plugin: ArenaManagementPlugin) : Listener {
         if (event.click == ClickType.DOUBLE_CLICK) return
         val slot = event.rawSlot
         if (slot < 0 || slot >= event.inventory.size) return
-        menu.handleClick(slot, event.click)
+        try {
+            menu.handleClick(slot, event.click)
+        } catch (t: Throwable) {
+            plugin.logger.warning("Menu click failed: ${t.javaClass.simpleName}: ${t.message}")
+            t.printStackTrace()
+            plugin.msg(menu.player, "&cSomething went wrong - see the console.")
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH)

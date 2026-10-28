@@ -57,7 +57,11 @@ class BedWarsHook(private val plugin: ArenaManagementPlugin) {
         val status = call(arena, "getStatus")?.toString()?.lowercase() ?: "waiting"
         val players = (call(arena, "getPlayers") as? Collection<*>)?.size ?: 0
         val max = (call(arena, "getMaxPlayers") as? Number)?.toInt() ?: 0
-        return LiveArena(name, display, group, status, players, max)
+        // Arena#getWorld() is null when the arena's world failed to load. BedWars1058 then throws a
+        // NullPointerException if you try to disable it, so we need to know.
+        val hasGetWorld = arena.javaClass.methods.any { it.name == "getWorld" && it.parameterCount == 0 }
+        val worldLoaded = !hasGetWorld || call(arena, "getWorld") != null
+        return LiveArena(name, display, group, status, players, max, worldLoaded)
     }
 
     /** True when the player is currently in (or spectating) a BedWars1058 arena. */
@@ -65,17 +69,6 @@ class BedWarsHook(private val plugin: ArenaManagementPlugin) {
         val bw = api ?: return false
         val util = call(bw, "getArenaUtil") ?: return false
         return call(util, "getArenaByPlayer", player) != null
-    }
-
-    /**
-     * Joins like BedWars1058's own arena menu does: only waiting/starting arenas, via
-     * IArena#addPlayer(player, false). Returns false if refused or unavailable.
-     */
-    fun join(player: Player, arenaName: String): Boolean {
-        val arena = findLive(arenaName) ?: return false
-        val status = call(arena, "getStatus")?.toString()?.lowercase()
-        if (status != "waiting" && status != "starting") return false
-        return call(arena, "addPlayer", player, false) == true
     }
 
     /** Spectates a running arena: IArena#addSpectator(player, false, null). */
